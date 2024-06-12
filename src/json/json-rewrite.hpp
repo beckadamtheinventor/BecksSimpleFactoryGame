@@ -13,8 +13,21 @@ namespace JSON {
     typedef size_t jsize_t;
     typedef long long jlong_t;
     typedef int jint_t;
-    static char *dupcstr(std::string s) {
-        char *r = (char*) malloc(s.length()+1);
+
+    enum Type {
+        Empty = 0,
+        Object,
+        Array,
+        Null,
+        Boolean,
+        Integer,
+        Float,
+        String,
+        User = 0x100,
+    };
+
+    static char* dupcstr(std::string s) {
+        char* r = (char*) malloc(s.length()+1);
         if (r == NULL) {
             printf("JSON::dupcstr() out of memory");
             throw std::exception();
@@ -26,231 +39,172 @@ namespace JSON {
         r[i] = 0;
         return r;
     }
-    template<class V>
+    template<class V, jsize_t NUM_BUCKETS = 64>
     class HashedSymList {
-        constexpr static const jsize_t MIN_NUM_ENTRIES = 10;
-		static jsize_t Hash(const char *s) {
+		static jsize_t Hash(const char* s) {
             if (s == NULL) {
                 return 0;
             }
             jsize_t h = 0;
             for (jsize_t i=0; s[i]; i++) {
-                h = h*129 ^ ~s[i];
+                h = h*129 ^ s[i];
             }
             return h;
 		}
         public:
         class Symbol {
             public:
-            const char *key;
+            const char* key;
             jsize_t hash;
-            V *value;
-            Symbol(jsize_t hash, char *key) {
+            V* value;
+            Symbol *next;
+            Symbol(jsize_t hash, char* key) {
                 this->key = key;
                 this->hash = hash;
+                this->value = nullptr;
+                this->next = nullptr;
             }
-            Symbol(char *key) : Symbol(Hash(key), key) {};
+            Symbol(char* key) : Symbol(Hash(key), key) {};
             Symbol() : Symbol(0, nullptr) {};
-
-            Symbol& operator=(const Symbol& sym) {
-                hash = sym.hash;
-                key = sym.key;
-                value = sym.value;
-                return *this;
-            }
-            V* operator=(const V* val) {
-                value = val;
-            }
-
-            operator V() const {return value;}
         };
 
         private:
-        Symbol *entries = nullptr;
-        jsize_t max_entries;
         jsize_t length = 0;
+        Symbol* entries[NUM_BUCKETS] = { nullptr };
 
         public:
 
-        HashedSymList() : HashedSymList(MIN_NUM_ENTRIES) {}
-        HashedSymList(jsize_t max) {
-            max_entries = max;
-            if (max > 0) {
-                entries = new Symbol[max];
-            } else {
-                entries = nullptr;
-            }
-        }
-        HashedSymList(HashedSymList *v) : HashedSymList(v->max_entries) {
-            length = v->length;
-            for (jsize_t i = 0; i < max_entries; i++) {
-                entries[i] = v->entries[i];
-            }
-        }
-
-        void Clear() {
-            delete entries;
-            entries = new Symbol[MIN_NUM_ENTRIES] {nullptr};
-            length = 0;
-            max_entries = MIN_NUM_ENTRIES;
-        }
-
-        void Resize(jsize_t size) {
-            if (size < max_entries) {
-                length = -1;
-            }
-            Symbol *newmembers = new Symbol[size];
-            jsize_t j = 0;
-            for (jsize_t i = 0; i < max_entries; i++) {
-                if (entries[i].key != nullptr) {
-                    newmembers[j++] = entries[i];
-                    if (j >= size) {
-                        break;
+        HashedSymList() {}
+        HashedSymList(HashedSymList* v) {
+            for (jsize_t i = 0; i < NUM_BUCKETS; i++) {
+                if (v->entries[i] != nullptr) {
+                    Symbol *sym = v->entries[i];
+                    Symbol *cur = entries[i] = Symbol(sym);
+                    while (sym->next != nullptr) {
+                        cur->next = Symbol(sym->next);
+                        cur = cur->next;
                     }
                 }
             }
-            while (j < size) {
-                newmembers[j++].key = nullptr;
-            }
-            max_entries = size;
-            delete entries;
-            entries = newmembers;
-            Length();
-        }
-
-        V* Add(const char *key, V *value) {
-            for (jsize_t i = 0; i < max_entries; i++) {
-                if (entries[i].key == nullptr) {
-                    entries[i].hash = Hash(key);
-                    entries[i].key = key;
-                    entries[i].value = value;
-                    length++;
-                    return entries[i].value;
-                }
-            }
-            Resize(max_entries + MIN_NUM_ENTRIES);
-            jsize_t j = FindFirstEmptyIndex();
-            entries[j].hash = Hash(key);
-            entries[j].key = key;
-            entries[j].value = value;
-            length++;
-            return entries[j].value;
-        }
-
-        void Remove(const char *key) {
-            Symbol& sym = FindSym(key);
-            sym.name = nullptr;
-            length--;
-        }
-
-        jlong_t FindSymIndex(const char *key) {
-            jsize_t hash = Hash(key);
-            for (jsize_t i = 0; i < max_entries; i++) {
-                if (entries[i].hash == hash) {
-                    if (entries[i].key != nullptr) {
-                        if (!strcmp(entries[i].key, key)) {
-                            return i;
-                        }
-                    }
-                }
-            }
-            return -1;
-        }
-
-        bool Contains(const char *key) {
-            return (FindSymIndex(key) != -1);
         }
 
         jsize_t Length() {
-            jsize_t l = 0;
-            for (jsize_t i = 0; i < max_entries; i++) {
-                if (entries[i].key != nullptr) {
-                    l++;
-                }
-            }
-            length = l;
-            return l;
+            return length;
         }
 
-        jsize_t FindFirstEmptyIndex() {
-            for (jsize_t i = 0; i < max_entries; i++) {
-                if (entries[i].key == nullptr) {
-                    return i;
-                }
-            }
-            jsize_t n = max_entries;
-            Resize(max_entries + MIN_NUM_ENTRIES);
-            return n;
-        }
-
-        Symbol& FindSym(jsize_t i) {
-            for (jsize_t j = 0; j < max_entries; j++) {
-                if (entries[j].key != nullptr) {
-                    if (i == 0) {
-                        return entries[j];
+        void Clear() {
+            for (jsize_t i = 0; i < NUM_BUCKETS; i++) {
+                if (entries[i] != nullptr) {
+                    Symbol *cur = entries[i];
+                    while (cur->next != nullptr) {
+                        Symbol *next = cur->next;
+                        delete cur;
+                        cur = next;
                     }
+                    delete cur;
+                    entries[i] = nullptr;
+                }
+            }
+            length = 0;
+        }
+
+        V* Add(const char* key, V* value) {
+            Symbol *sym = new Symbol();
+            sym->value = value;
+            sym->key = key;
+            sym->hash = Hash(key);
+            length++;
+            Symbol *cur = entries[sym->hash % NUM_BUCKETS];
+            if (cur == nullptr) {
+                entries[sym->hash % NUM_BUCKETS] = sym;
+                return value;
+            }
+            while (cur->next != nullptr) {
+                cur = cur->next;
+            }
+            cur->next = sym;
+            return value;
+        }
+
+        void Remove(const char* key) {
+            Symbol* sym = FindSym(key);
+            length--;
+        }
+
+        bool Contains(const char* key) {
+            return FindSym(key) != nullptr;
+        }
+
+        Symbol *FindSym(const char *key, Symbol **prev=nullptr) {
+            jsize_t hash = Hash(key);
+            Symbol *sym = entries[hash % NUM_BUCKETS];
+            if (sym == nullptr) {
+                return nullptr;
+            }
+            if (prev != nullptr) {
+                *prev = nullptr;
+            }
+            do {
+                if (sym->hash == hash && !strcmp(sym->key, key)) {
+                    return sym;
+                }
+                if (prev != nullptr) {
+                    *prev = sym;
+                }
+                sym = sym->next;
+            } while (sym != nullptr);
+            return nullptr;
+        }
+
+        Symbol *FindSym(jsize_t i) {
+            for (jsize_t j=0; j<NUM_BUCKETS; j++) {
+                Symbol *sym = entries[j];
+                while (sym != nullptr) {
+                    if (i == 0) {
+                        return sym;
+                    }
+                    sym = sym->next;
                     i--;
                 }
             }
-            return entries[FindFirstEmptyIndex()];
+            return nullptr;
         }
 
-        Symbol& FindSym(const char *key) {
-            jlong_t i = FindSymIndex(key);
-            if (i == -1) {
-                throw std::exception();
+        const char* Keys(jsize_t i) {
+            Symbol *sym = FindSym(i);
+            if (sym == nullptr) {
+                return nullptr;
             }
-            return entries[i];
+            return sym->key;
         }
 
-        const char *Keys(jsize_t i) {
-            return FindSym(i).key;
-        }
-
-        V& Get(jsize_t i) {
-            return FindSym(i).value;
+        V* Get(jsize_t i) {
+            Symbol *sym = FindSym(i);
+            if (sym == nullptr) {
+                return nullptr;
+            }
+            return sym->value;
         }
 
         V* Values(jsize_t i) {
-            return FindSym(i).value;
+            return Get(i);
         }
 
-		V* Get(const char *key) {
-			return FindSym(key).value;
+		V* Get(const char* key) {
+            Symbol *sym = FindSym(key);
+            if (sym == nullptr) {
+                return nullptr;
+            }
+			return sym->value;
 		}
 		
-        Symbol& NextSym(const char *key) {
-            jlong_t i = FindSymIndex(key);
-            if (i == -1) {
-                return -1;
-            }
-            return NextSym(i);
-        }
-
-        Symbol& NextSym(jsize_t i) {
-            if (i+1 >= max_entries) {
-                return new Symbol;
-            }
-            return entries[i+1];
-        }
-
-        V* operator[](const char *key) {
-            return Get(key);
+        V* operator[](const char* key) {
+            return FindSym(key)->value;
         }
 
         V* operator[](jsize_t i) {
             return Values(i);
         }
-    };
-    enum Type {
-        Empty = 0,
-        Object,
-        Array,
-        Null,
-        Boolean,
-        Integer,
-        Float,
-        String,
     };
     class JSON {
 
@@ -298,7 +252,7 @@ namespace JSON {
                 members = newmembers;
                 allocated = size;
             }
-            JSON* append(JSON *object) {
+            JSON* append(JSON* object) {
                 if (length + 1 >= allocated) {
                     resize(allocated + MIN_ALLOC);
                 }
@@ -326,19 +280,19 @@ namespace JSON {
             JSON* operator[](jsize_t i) {
                 return get(i);
             }
-            JSON* operator+=(JSON *object) {
+            JSON* operator+=(JSON* object) {
                 return append(object);
             }
         };
         private:
         jsize_t type = Type::Empty;
         union {
-            const char *s;
+            const char* s;
             jdouble_t d;
             jlong_t i;
-            JSONArray *a;
-            JSONMap *o;
-            void *p;
+            JSONArray* a;
+            JSONMap* o;
+            void* p;
         } value;
         void type_error() {
             printf("Wrong type (0x%llX) for operation\n", type);
@@ -346,11 +300,11 @@ namespace JSON {
         }
         public:
         JSON() {}
-        JSON(JSONMap *o) {
+        JSON(JSONMap* o) {
             this->type = Type::Object;
             this->value.o = o;
         }
-        JSON(JSONArray *a) {
+        JSON(JSONArray* a) {
             this->type = Type::Array;
             this->value.a = a;
         }
@@ -358,15 +312,11 @@ namespace JSON {
             this->type = Type::Integer;
             this->value.i = i;
         }
-        JSON(jint_t i) {
-            this->type = Type::Integer;
-            this->value.i = i;
-        }
         JSON(jdouble_t d) {
             this->type = Type::Float;
             this->value.d = d;
         }
-        JSON(char *s) {
+        JSON(char* s) {
             this->type = Type::String;
             this->value.s = s;
         }
@@ -375,24 +325,36 @@ namespace JSON {
             this->value.s = (char*) s.c_str();
         }
 
-        JSONMap *set(JSONMap& o) { return setObject(o); }
-        JSONMap *set(JSONMap* o) { return setObject(o); }
-        JSONArray *set(JSONArray& a) { return setArray(a); }
-        JSONArray *set(JSONArray *a) { return setArray(a); }
+        static JSON* fromDouble(jdouble_t d) {
+            JSON* j = new JSON();
+            j->setFloat(d);
+            return j;
+        }
+
+        static JSON* fromUint(jsize_t i) {
+            JSON* j = new JSON();
+            j->setInteger(i);
+            return j;
+        }
+
+        static JSON* fromInt(jint_t i) {
+            JSON* j = new JSON();
+            j->setInteger(i);
+            return j;
+        }
+
+        JSONMap* set(JSONMap& o) { return setObject(o); }
+        JSONMap* set(JSONMap* o) { return setObject(o); }
+        JSONArray* set(JSONArray& a) { return setArray(a); }
+        JSONArray* set(JSONArray* a) { return setArray(a); }
         jdouble_t set(jdouble_t v) { return setFloat(v); }
         jlong_t set(jlong_t v) { return setInteger(v); }
         jint_t set(jint_t v) { return setInteger(v); }
-        const char *set(const char *s) { return setString(s); }
+        const char* set(const char* s) { return setString(s); }
         std::string set(std::string s) { return setString(s); }
         bool set(bool v) { return setBoolean(v); }
         void set() { return setNull(); }
-        void *set(void *p, jsize_t t) { return setCustom(p, t); }
-
-        static JSON *fromDouble(double value) {
-            JSON *j = new JSON();
-            j->setFloat((jdouble_t)value);
-            return j;
-        }
+        void* set(void* p, jsize_t t) { return setCustom(p, t); }
 
         Type getType() {
             return static_cast<Type>(type);
@@ -406,11 +368,11 @@ namespace JSON {
             this->type = t;
         }
 
-        void *getCustomValue() {
+        void* getCustomValue() {
             return this->value.p;
         }
 
-        void setCustomValue(void *p) {
+        void setCustomValue(void* p) {
             this->value.p = p;
         }
 
@@ -422,20 +384,20 @@ namespace JSON {
             return value.a->get(value.a->length);
         }
         JSON* operator[](std::string key) {
-            const char *s = key.c_str();
+            const char* s = key.c_str();
             if (type == Type::Object) {
                 if (value.o->Contains(s)) {
-                    return value.o->FindSym(s).value;
+                    return value.o->FindSym(s)->value;
                 }
                 return value.o->Add(key.c_str(), new JSON());
             }
             printf("Cannot index non-object with key string\n");
             throw std::exception();
         }
-        JSON* operator[](char *key) {
+        JSON* operator[](char* key) {
             if (type == Type::Object) {
                 if (value.o->Contains(key)) {
-                    return value.o->FindSym(key).value;
+                    return value.o->FindSym(key)->value;
                 }
                 return value.o->Add(key, new JSON());
             }
@@ -448,7 +410,7 @@ namespace JSON {
             }
             return false;
         }
-        bool contains(const char *key) {
+        bool contains(const char* key) {
             if (type == Type::Object) {
                 return value.o->Contains(key);
             }
@@ -466,13 +428,22 @@ namespace JSON {
             }
             return std::string(value.s);
         }
-        jdouble_t& getFloat() {
+        jdouble_t getNumber() {
+            if (type == Type::Float) {
+                return value.d;
+            } else if (type == Type::Integer) {
+                return value.i;
+            }
+            type_error();
+            return 0;
+        }
+        jdouble_t getFloat() {
             if (type != Type::Float) {
                 type_error();
             }
             return value.d;
         }
-        jlong_t& getInteger() {
+        jlong_t getInteger() {
             if (type != Type::Integer) {
                 type_error();
             }
@@ -509,31 +480,31 @@ namespace JSON {
             if (type != Type::Object) {
                 type_error();
             }
-            return *value.o;
+            return* value.o;
         }
         JSONArray& getArray() {
             if (type != Type::Array) {
                 type_error();
             }
-            return *value.a;
+            return* value.a;
         }
 
-        JSONMap *setObject(JSONMap& o) {
+        JSONMap* setObject(JSONMap& o) {
             this->type = Type::Object;
             this->value.o = new JSONMap(o);
 			return this->value.o;
         }
-        JSONMap *setObject(JSONMap *o) {
+        JSONMap* setObject(JSONMap* o) {
             this->type = Type::Object;
             this->value.o = o;
 			return this->value.o;
         }
-        JSONArray *setArray(JSONArray& a) {
+        JSONArray* setArray(JSONArray& a) {
             this->type = Type::Array;
             this->value.a = new JSONArray(a);
 			return this->value.a;
         }
-        JSONArray *setArray(JSONArray *a) {
+        JSONArray* setArray(JSONArray* a) {
             this->type = Type::Array;
             this->value.a = a;
 			return this->value.a;
@@ -548,7 +519,7 @@ namespace JSON {
             this->value.i = i;
 			return i;
         }
-        const char *setString(const char *s) {
+        const char* setString(const char* s) {
             this->type = Type::String;
             this->value.s = s;
 			return s;
@@ -567,13 +538,13 @@ namespace JSON {
             this->type = Type::Null;
             this->value.i = 0;
         }
-        void *setCustom(void *p, jsize_t t) {
+        void* setCustom(void* p, jsize_t t) {
             this->type = t;
             this->value.p = p;
             return p;
         }
 
-        const char *serialize() {
+        const char* serialize() {
             jsize_t len;
             std::string o = std::string();
             switch (type) {
@@ -593,10 +564,24 @@ namespace JSON {
                     break;
                 case Type::String:
                     if (value.s != NULL) {
-                        o.reserve(strlen(value.s));
-                        o.append("\"");
-                        o.append(value.s);
-                        o.append("\"");
+                        o.reserve(strlen(value.s)+3);
+                        int j = 0;
+                        o[j++] = '"';
+                        for (int i=0; value.s[i]>0; i++) {
+                            if (value.s[i] == '\n') {
+                                o[j++] = '\\';
+                                o[j++] = 'n';
+                            } else if (value.s[i] == '\t') {
+                                o[j++] = '\\';
+                                o[j++] = 't';
+                            } else if (value.s[i] == '"') {
+                                o[j++] = '\\';
+                                o[j++] = '"';
+                            } else {
+                                o[j++] = value.s[i];
+                            }
+                        }
+                        o[j++] = '"';
                     } else {
                         o.append("\"\"");
                     }
@@ -640,7 +625,7 @@ namespace JSON {
             return dupcstr(o);
         }
 
-        static JSON *deserialize(const char *data) {
+        static JSON* deserialize(const char* data) {
             jsize_t i = 0;
             return deserialize(data, i);
         }
@@ -657,12 +642,12 @@ namespace JSON {
                 return 0;
             }
         }
-        static void skipspace(const char *data, jsize_t &i) {
+        static void skipspace(const char* data, jsize_t &i) {
             while (data[i] == ' ' || data[i] == '\t' || data[i] == '\n' || data[i] == ',') {
                 i++;
             }
         }
-        static char nextchar(const char *data, jsize_t &i) {
+        static char nextchar(const char* data, jsize_t &i) {
             skipspace(data, i);
             char c = data[i++];
             skipspace(data, i);
@@ -818,11 +803,11 @@ namespace JSON {
 	typedef JSON::JSON::JSONArray JSONArray;
 	typedef HashedSymList<JSON> JSONObject;
 
-    static JSON *deserialize(const char *s) {
+    static JSON* deserialize(const char* s) {
         return JSON::deserialize(s);
     }
 
-    static JSON *deserialize(std::string s) {
+    static JSON* deserialize(std::string s) {
         return JSON::deserialize(s.c_str());
     }
 

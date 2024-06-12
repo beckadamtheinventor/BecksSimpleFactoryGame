@@ -330,7 +330,7 @@ namespace BSFG {
     }
 
     void Engine::Spawn() {
-        long long y = 1;
+        long long y = 40;
         while (world->getBlock(0, y++, 0)->isSolid) {
             if (y >= WORLD_BOTTOM+WORLD_HEIGHT) {
                 break;
@@ -700,7 +700,7 @@ namespace BSFG {
         // generate mesh for opaque blocks
         _GenChunkMesh(pos, true);
         // generate mesh for transparent blocks
-        _GenChunkMesh(pos, false);
+        // _GenChunkMesh(pos, false);
         return true;
     }
 
@@ -956,8 +956,9 @@ namespace BSFG {
     }
 
     bool Engine::IsChunkInView(Vector3 pos) {
-        float chunkAngle = atan2f(pos.z - camera.target.z, pos.x - camera.target.x);
-        return fabsf(chunkAngle - targetAngle) <= fovx * 0.5f + FRUSTUM_FOV_PADDING;
+        //float chunkAngle = atan2f(pos.z - camera.target.z, pos.x - camera.target.x);
+        //return fabsf(chunkAngle - targetAngle) <= fovx * 0.5f + FRUSTUM_FOV_PADDING;
+        return true;
     }
 
 }
