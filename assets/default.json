@@ -1,0 +1,77 @@
+{
+    "textures": {
+        "defines": [
+            "dirt_block",
+            "stone_block",
+            "grass_block_top",
+            "grass_block_side",
+			"bedrock_block",
+            "gravel_block",
+            "sand_block",
+            "water_block",
+            "fireclay_block",
+            "black_block",
+            "white_block",
+            "red_block",
+            "light_blue_block",
+            "yellow_block",
+            "purple_block",
+            "anthill_block_top",
+            "loose_dirt_block"
+        ]
+    },
+    "items": {},
+    "blocks": {
+        "defines": [
+            {"id": "bedrock", "title": "Bedrock", "textures": "default:bedrock_block"},
+            {"id": "stone", "title": "Stone", "textures": "default:stone_block"},
+            {"id": "dirt", "title": "Dirt", "tickfunction": "tick_dirt_block", "randomtick": 128, "textures": "default:dirt_block"},
+            {"id": "grass_block", "title": "Grass Block", "tickfunction": "tick_grass_block", "randomtick": 32, "textures": ["default:grass_block_top", "default:dirt_block", "default:grass_block_side", "default:grass_block_side", "default:grass_block_side", "default:grass_block_side"]},
+            {"id": "gravel", "title": "Gravel", "tickfunction": "tick_falling_block", "textures": "gravel_block"},
+            {"id": "sand", "title": "Sand", "tickfunction": "tick_falling_block", "textures": "sand_block"},
+            {"id": "water", "title": "Water", "textures": "water_block", "solid": false, "opaque": false, "tickfunction": "tick_water_block"},
+            {"id": "fireclay", "title": "Fire Clay", "textures": "default:fireclay_block"},
+            {"id": "anthill", "title": "Anthill", "tickfunction": "tick_anthill", "randomtick": 32, "textures": ["anthill_block_top", "loose_dirt_block", "loose_dirt_block", "loose_dirt_block", "loose_dirt_block", "loose_dirt_block"]},
+            {"id": "loose_dirt", "title": "Loose Dirt", "tickfunction": "tick_falling_block", "textures": "loose_dirt_block"},
+            {"id": "black_block", "title": "Black Block", "textures": "default:black_block"},
+            {"id": "white_block", "title": "White Block", "textures": "default:white_block"},
+            {"id": "red_block", "title": "Red Block", "textures": "default:red_block"},
+            {"id": "light_blue_block", "title": "Light Blue Block", "textures": "default:light_blue_block"},
+            {"id": "yellow_block", "title": "Yellow Block", "textures": "default:yellow_block"},
+            {"id": "purple_block", "title": "Purple Block", "textures": "default:purple_block"}
+        ]
+    },
+    "tickingfunctions": {
+        "defines": [
+            {"id": "tick_grass_block", "source": "tickfunctions/grass_block.txt"},
+            {"id": "tick_dirt_block", "source": "tickfunctions/dirt_block.txt"},
+            {"id": "tick_falling_block", "source": "tickfunctions/falling_block.txt"},
+            {"id": "tick_anthill", "source": "tickfunctions/anthill.txt"},
+            {"id": "tick_water_block", "source": "tickfunctions/fluid_block.txt"}
+        ]
+    },
+    "generators": {
+        "terrain_functions": [
+            "base_terrain_gen"
+        ],
+        "defines": [
+            {"id": "base_terrain_gen", "source": "generators/base_terrain_gen.txt"}
+        ]
+    },
+    "(unused)skybox": "textures/skybox_simple.png",
+    "defaults": {
+        "renderdistance": 8
+    },
+    "noise": {
+        "base": 20.0,
+        "multiplier": 2.5,
+        "easing": 0.5,
+        "min": 20.0,
+        "max": 140.0,
+        "frequency": 0.02,
+        "amplitude": 3.0,
+        "lacunarity": 2.5,
+        "gain": 0.9,
+        "octaves": 4
+    }
+}

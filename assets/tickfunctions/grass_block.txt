@@ -1,0 +1,20 @@
+; check for block on top
+pushvar 0
+i8 1
+push
+pushvar 0
+getBlock
+isOpaque
+; exit if block on top is not opaque
+bz @eof
+
+; otherwise set to dirt
+i32 #dirt
+push
+pushvar 0
+pushvar 0
+pushvar 0
+setBlock
+
+:end
+returnUpdate

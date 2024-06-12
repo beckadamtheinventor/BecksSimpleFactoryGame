@@ -1,0 +1,29 @@
+; check for block on top
+pushvar 0
+i8 1
+push
+pushvar 0
+getBlock
+isOpaque
+; if block is opaque, exit
+bnz @eof
+
+; check for grass blocks in a 3x3x3 cube surrounding this block
+i32 #grass_block
+push
+pushvar 0
+pushvar 0
+pushvar 0
+check3x3x3
+; if none, exit
+bz @eof
+
+; set to grass block
+i32 #grass_block
+push
+pushvar 0
+pushvar 0
+pushvar 0
+setBlock
+
+returnUpdate

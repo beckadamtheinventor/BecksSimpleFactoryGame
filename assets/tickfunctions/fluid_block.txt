@@ -1,0 +1,12 @@
+; probably should make this a little less destructive
+end
+pushvar 0
+pushvar 0
+pushvar 0
+getBlock
+push
+pushvar 0
+pushvar 0
+pushvar 0
+pushvar 0
+; spreadBlocks

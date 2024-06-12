@@ -1,0 +1,79 @@
+jsr @spread
+jsr @spread
+jsr @spread
+jsr @spread
+returnUpdate
+end
+
+; run 1-4 times
+;random
+;i8b 3
+;and
+;inc
+
+;:spreadloop
+;sv _counter
+;jsr @spread
+;v _counter
+;dec
+;bnz @spreadloop
+;end
+
+:spread
+; spread loose dirt randomly in a 9x3x9 area centered around this block, but not above
+; target X position
+
+random
+i8b 9
+mod
+i8b 4
+sub
+sv _sx
+
+random
+i8b 9
+mod
+i8b 4
+sub
+sv _sz
+
+v _sz
+mul
+push
+v _sx
+ex
+v _sx
+mul
+popb
+add
+sqrt
+i8b 4
+gt
+rtsnz
+
+pushvar _sx
+pushvar 0
+pushvar _sz
+getBlock
+i32b #grass_block
+sub
+bz @set
+add
+i32b #dirt
+sub
+rtsnz
+
+:set
+i32 #loose_dirt
+push
+push
+pushvar _sx
+pushvar 0
+pushvar _sz
+setBlock
+pushvar _sx
+i8 -1
+push
+pushvar _sz
+setBlock
+rts

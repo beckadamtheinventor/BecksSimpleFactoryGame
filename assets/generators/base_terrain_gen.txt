@@ -1,0 +1,82 @@
+; base generator function
+; used to set terrain layers
+
+arg 0
+i8b 60
+gteq
+bnz @above_water
+
+arg 0
+ex
+sub
+sv _abovesoildepth
+
+i32 #water
+sv _abovesoil
+
+i32 #gravel
+sv _topsoil
+
+i32 #gravel
+sv _soil
+
+ba @finishstone
+
+
+:above_water
+v 0
+sv _abovesoil
+sv _abovesoildepth
+arg 0
+i8b 62
+gteq
+bnz @above_beach
+
+i32 #sand
+sv _topsoil
+i32 #loose_dirt
+sv _soil
+ba @finishstone
+
+:above_beach
+
+; topsoil block
+i32 #grass_block
+sv _topsoil
+
+; soil block
+i32 #dirt
+sv _soil
+
+
+:finishstone
+
+; underground block
+i32 #stone
+sv _underground
+
+; bedrock block
+i32 #bedrock
+sv _bedrock
+
+; soil depth
+; a value from 3 to 6
+random
+i8b 3
+and ; random & 3
+add ; (random & 3) + 3
+sv _soildepth
+
+; return the values we just set
+rv 0 _topsoil
+rv 1 _soil
+rv 2 _soildepth
+rv 3 _underground
+rv 4 _bedrock
+rv 5 _abovesoil
+rv 6 _abovesoildepth
+
+; make sure this only runs once per chunk column
+;i8 -1
+;sv _negative1
+;rv 7 _negative1

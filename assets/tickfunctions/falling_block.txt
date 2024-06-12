@@ -1,0 +1,30 @@
+; check for solid block underneath
+i8 -1
+sv _oy
+pushvar 0
+pushvar _oy
+pushvar 0
+getBlock
+isSolid
+bnz @eof
+pushvar 0
+
+; set block underneath to the same as this block
+pushvar 0
+pushvar 0
+pushvar 0
+getBlock
+push
+pushvar 0
+pushvar _oy
+pushvar 0
+setBlock
+
+; set this block to air
+pushvar 0
+pushvar 0
+pushvar 0
+pushvar 0
+setBlock
+
+returnUpdate

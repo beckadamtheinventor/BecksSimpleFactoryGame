@@ -1,0 +1,6 @@
+i32 #gravel
+push
+pusharg _X
+pusharg _Y
+pusharg _Z
+setBlock
