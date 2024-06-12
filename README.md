@@ -1,6 +1,9 @@
 # Beck's Simple Factory Game
 
-WIP.
+WIP. Currently in a non-functional state.
+
+A simple voxel engine with the goal of being completely modable and hot-reloadable.
+
 
 ## Building
 
